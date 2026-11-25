@@ -46,10 +46,18 @@ export default function QuoteSummary({ onBack, onContinue }) {
   );
   const dynamicItemizedServices = itemizedBreakdown.rows;
   const effectiveServicesTotal = itemizedBreakdown.totalServices;
-  const STATIC_SALES_TAX_RATE = 0.11; // Flat 11% tax rate across all Section II (Merchandise) items
 
   // ================= 2. DYNAMIC (CONTEXT-BASED) ELEMENTS =================
   const homeObj = calculation.homeObj || quote.selectedHomeObj || {};
+  const taxRatePercent = calculation.taxRate !== undefined && calculation.taxRate !== null && !isNaN(Number(calculation.taxRate))
+    ? Number(calculation.taxRate)
+    : (homeObj?.taxRate !== undefined && homeObj?.taxRate !== null && !isNaN(Number(homeObj.taxRate))
+        ? Number(homeObj.taxRate)
+        : (quote?.taxRate !== undefined && quote?.taxRate !== null && !isNaN(Number(quote.taxRate))
+            ? Number(quote.taxRate)
+            : 11));
+  const dynamicTaxRateMultiplier = taxRatePercent / 100;
+  const STATIC_SALES_TAX_RATE = dynamicTaxRateMultiplier;
   const serviceKey = quote.service || 'one_day';
   const serviceObj = quote.selectedServiceObject || calculation.serviceObj || {};
   const rawServiceDisplayName = getLocalizedText(serviceObj, 'packageName', lang) || quote.serviceName || SERVICES.find(s => s[0] === serviceKey)?.[1] || 'ONE-DAY FUNERAL';
@@ -112,8 +120,8 @@ export default function QuoteSummary({ onBack, onContinue }) {
     0
   );
 
-  // 11% tax on guaranteed merchandise (itemPrice * 0.11)
-  const guaranteedAddonsTax = Math.round(guaranteedAddonsTotal * 0.11 * 100) / 100;
+  // Sales tax on guaranteed merchandise (itemPrice * dynamicTaxRateMultiplier)
+  const guaranteedAddonsTax = Math.round(guaranteedAddonsTotal * dynamicTaxRateMultiplier * 100) / 100;
 
   // Add base price of any selected guaranteedAddons to TOTAL MERCHANDISE & TOTAL GUARANTEED FUNERAL PRICE
   const dynamicTotalMerchandise = dynamicCasketPrice + guaranteedAddonsTotal;
@@ -140,9 +148,9 @@ export default function QuoteSummary({ onBack, onContinue }) {
     0
   );
 
-  // 2. Dynamic Sales Tax: flat 11% across all Section II (Merchandise) items: (casketPrice + guaranteedAddonsTotal) * 0.11
-  const casketSalesTax = Math.round(dynamicCasketPrice * STATIC_SALES_TAX_RATE * 100) / 100;
-  const dynamicSalesTax = Math.round((dynamicCasketPrice + guaranteedAddonsTotal) * STATIC_SALES_TAX_RATE * 100) / 100;
+  // 2. Dynamic Sales Tax across all Section II (Merchandise) items: (casketPrice + guaranteedAddonsTotal) * dynamicTaxRateMultiplier
+  const casketSalesTax = Math.round(dynamicCasketPrice * dynamicTaxRateMultiplier * 100) / 100;
+  const dynamicSalesTax = Math.round((dynamicCasketPrice + guaranteedAddonsTotal) * dynamicTaxRateMultiplier * 100) / 100;
 
   // Custom manual non-guaranteed items from Step 5
   const customNonGuaranteedItems = (Array.isArray(quote.customNonGuaranteedItems)
@@ -230,10 +238,12 @@ export default function QuoteSummary({ onBack, onContinue }) {
           customNonGuaranteedItems,
           guaranteedAddonsTotal,
           guaranteedAddonsTax,
+          taxRate: taxRatePercent,
         },
         calculation: {
           ...calculation,
           selectedChapel,
+          taxRate: taxRatePercent,
           s1: effectiveServicesTotal,
           s2: dynamicTotalMerchandise,
           guaranteedAddons,
@@ -898,12 +908,12 @@ export default function QuoteSummary({ onBack, onContinue }) {
                 <tbody>
                   <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
                     <td style={{ padding: '4px 6px' }}>
-                      <div>{isEs ? 'Impuesto sobre Ventas (11%)' : 'Sales Tax (11%)'}</div>
+                      <div>{isEs ? `Impuesto sobre Ventas (${taxRatePercent}%)` : `Sales Tax (${taxRatePercent}%)`}</div>
                       {guaranteedAddonsTax > 0 && (
                         <div style={{ fontSize: '9px', color: '#64748b', marginTop: '1px' }}>
                           {isEs
-                            ? `(incluye 11% sobre mercancía garantizada: ${formatMoney(guaranteedAddonsTax)})`
-                            : `(includes 11% tax on guaranteed items: ${formatMoney(guaranteedAddonsTax)})`}
+                            ? `(incluye ${taxRatePercent}% sobre mercancía garantizada: ${formatMoney(guaranteedAddonsTax)})`
+                            : `(includes ${taxRatePercent}% tax on guaranteed items: ${formatMoney(guaranteedAddonsTax)})`}
                         </div>
                       )}
                     </td>

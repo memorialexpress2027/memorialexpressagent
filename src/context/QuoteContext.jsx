@@ -203,6 +203,7 @@ export function QuoteProvider({ children }) {
       homeId: homeId,
       homeName: homeObj?.name || prev.homeName || '',
       selectedHomeObj: homeObj,
+      taxRate: (homeObj?.taxRate !== undefined && homeObj?.taxRate !== null && !isNaN(Number(homeObj.taxRate))) ? Number(homeObj.taxRate) : 11,
       selectedChapel: null,
       selectedBranch: null,
       service: '',
@@ -392,7 +393,7 @@ export function QuoteProvider({ children }) {
   };
 
   // Live calculation results based on read-only DB snapshot and selected home
-  const calculation = db ? calculateQuote(quote, db) : null;
+  const calculation = db ? calculateQuote({ ...quote, selectedHomeObj: selectedFuneralHome || quote.selectedHomeObj }, db) : null;
   if (calculation && selectedFuneralHome) {
     calculation.homeObj = selectedFuneralHome;
   }

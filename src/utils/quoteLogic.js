@@ -373,6 +373,13 @@ export function getMatchedLocation(home, searchLocation) {
 export function calculateQuote(q, db) {
   const h = q.home;
   const homeObj = q.selectedHomeObj || (db?.homes || []).find(x => x.id === h || x._id === h) || null;
+  const rawTaxRate = q.taxRate !== undefined && q.taxRate !== null && !isNaN(Number(q.taxRate))
+    ? Number(q.taxRate)
+    : (homeObj?.taxRate !== undefined && homeObj?.taxRate !== null && !isNaN(Number(homeObj.taxRate))
+        ? Number(homeObj.taxRate)
+        : 11);
+  const taxRatePercent = Math.max(0, rawTaxRate);
+  const taxRateMultiplier = taxRatePercent / 100;
   const pkgFromDb = getPackage(db, h, q.service);
   const p = {
     section1: q.selectedServiceObject?.section1Price !== null && q.selectedServiceObject?.section1Price !== undefined
@@ -481,7 +488,7 @@ export function calculateQuote(q, db) {
             : []))).filter(isGuaranteedItem);
 
   const guaranteedAddonsBasePrice = guaranteedAddons.reduce((tot, a) => tot + Number(a.totalPrice ?? a.price ?? 0), 0);
-  const guaranteedAddonsTax = Math.round(guaranteedAddonsBasePrice * 0.11 * 100) / 100;
+  const guaranteedAddonsTax = Math.round(guaranteedAddonsBasePrice * taxRateMultiplier * 100) / 100;
 
   // Breakdown of user non-guaranteed add-ons (strictly excluding guaranteed items)
   let added = [];
@@ -608,12 +615,12 @@ export function calculateQuote(q, db) {
     westernGuaranteedPrice +
     felipeGuaranteedPrice;
 
-  // Taxes: Flat 11% tax rate applied across all Section II (Merchandise) items: Caskets and Guaranteed Merchandise
-  const defaultTaxRate = 0.11;
+  // Taxes: Configurable per-funeral-home tax rate applied across all Section II (Merchandise) items: Caskets and Guaranteed Merchandise
+  const defaultTaxRate = taxRateMultiplier;
   const guaranteedAddonsTotal = guaranteedAddonsBasePrice;
   const taxableAmount = (Number(casketPrice) || 0) + (Number(guaranteedAddonsTotal) || 0);
-  const salesTax = Math.round(taxableAmount * defaultTaxRate * 100) / 100;
-  const casketSalesTax = Math.round((Number(casketPrice) || 0) * defaultTaxRate * 100) / 100;
+  const salesTax = Math.round(taxableAmount * taxRateMultiplier * 100) / 100;
+  const casketSalesTax = Math.round((Number(casketPrice) || 0) * taxRateMultiplier * 100) / 100;
 
   // Consulate / Ship Fees
   const consulateRate = h === 'murillo' ? 300 : (h === 'western' ? 995 : (h === 'felipe' ? 660 : 400));
@@ -656,7 +663,8 @@ export function calculateQuote(q, db) {
     matchedLoc,
     chapelExtra,
     salesTax,
-    taxRate: defaultTaxRate,
+    taxRate: taxRatePercent,
+    taxRateMultiplier,
     casketSalesTax,
     taxableAmount,
     mandatory,

@@ -28,6 +28,14 @@ export default function AddonsOptions({ onBack, onContinue }) {
     quote?.selectedHomeObj?.name ||
     '';
 
+  const homeObj = selectedFuneralHome || quote?.selectedHomeObj || {};
+  const taxRatePercent = (homeObj?.taxRate !== undefined && homeObj?.taxRate !== null && !isNaN(Number(homeObj.taxRate)))
+    ? Number(homeObj.taxRate)
+    : (quote?.taxRate !== undefined && quote?.taxRate !== null && !isNaN(Number(quote.taxRate))
+        ? Number(quote.taxRate)
+        : 11);
+  const taxRateMultiplier = taxRatePercent / 100;
+
   // Selected Service Package from Step 3 (or Step 2 zero-indexed)
   const selectedPackageId = String(
     quote?.selectedServiceObject?._id ||
@@ -348,7 +356,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
 
       if (isGuaranteedAddonItem(found || { id })) {
         guaranteedSum += total;
-        guaranteedTaxSum += Math.round(total * 0.11 * 100) / 100;
+        guaranteedTaxSum += Math.round(total * taxRateMultiplier * 100) / 100;
       } else {
         nonGuaranteedSum += total;
       }
@@ -386,8 +394,8 @@ export default function AddonsOptions({ onBack, onContinue }) {
       const quantity = Math.max(1, Number((addonQuantities && addonQuantities[id]) || 1));
       const totalPrice = unitPrice * quantity;
       const isGuar = isGuaranteedAddonItem(found || { id });
-      const taxRate = isGuar ? 0.11 : 0;
-      const taxAmount = isGuar ? Math.round(totalPrice * 0.11 * 100) / 100 : 0;
+      const taxRate = isGuar ? taxRateMultiplier : 0;
+      const taxAmount = isGuar ? Math.round(totalPrice * taxRateMultiplier * 100) / 100 : 0;
 
       const itemObj = {
         id,
@@ -435,7 +443,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
 
     const customItemsSum = filledCustomItems.reduce((sum, it) => sum + it.price, 0);
     const guaranteedAddonsTotal = guaranteedAddons.reduce((sum, a) => sum + a.totalPrice, 0);
-    const guaranteedAddonsTax = Math.round(guaranteedAddonsTotal * 0.11 * 100) / 100;
+    const guaranteedAddonsTax = Math.round(guaranteedAddonsTotal * taxRateMultiplier * 100) / 100;
     const nonGuaranteedAddonsTotal = nonGuaranteedAddons.reduce((sum, a) => sum + a.totalPrice, 0) + customItemsSum;
     const selectedAddonObjects = [...guaranteedAddons, ...nonGuaranteedAddons];
 
@@ -460,6 +468,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
       filledCustomNonGuaranteedItems: filledCustomItems,
       guaranteedAddonsTotal,
       guaranteedAddonsTax,
+      taxRate: taxRatePercent,
       nonGuaranteedAddonsTotal,
       addonsStepTotal: stepTotal.grandTotal,
       flowersQty: (addonQuantities && (addonQuantities['flowers'] || addonQuantities['murillo_flowers'] || addonQuantities['felipe_flowers'])) || 1,
@@ -482,7 +491,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
     const qty = (addonQuantities && addonQuantities[addon.id]) || 1;
     const unitPrice = getAddonUnitPrice(addon);
     const totalPrice = unitPrice * qty;
-    const taxAmount = isGuaranteed ? Math.round(totalPrice * 0.11 * 100) / 100 : 0;
+    const taxAmount = isGuaranteed ? Math.round(totalPrice * taxRateMultiplier * 100) / 100 : 0;
     const isMandatory = Boolean(addon.isMandatory);
     const isIncludedItem = Boolean(addon.isIncluded);
     const displayedPrice = (customPrices && customPrices[addon.id] !== undefined) ? customPrices[addon.id] : unitPrice;
@@ -744,8 +753,8 @@ export default function AddonsOptions({ onBack, onContinue }) {
                 <span>🏷️</span>
                 <span>
                   {isEs
-                    ? 'Sujeto al 11% de impuesto sobre mercancía (incluido en anticipos no garantizados)'
-                    : 'Subject to 11% merchandise tax (itemized under non-guaranteed cash advances)'}
+                    ? `Sujeto al ${taxRatePercent}% de impuesto sobre mercancía (incluido en anticipos no garantizados)`
+                    : `Subject to ${taxRatePercent}% merchandise tax (itemized under non-guaranteed cash advances)`}
                 </span>
               </div>
             )}
@@ -937,7 +946,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
               )}
               {isGuaranteed && !isIncludedItem && totalPrice > 0 && (
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#16a34a', marginTop: '2px', whiteSpace: 'nowrap' }}>
-                  + {formatMoney(taxAmount)} (11% tax)
+                  + {formatMoney(taxAmount)} ({taxRatePercent}% tax)
                 </div>
               )}
             </div>
@@ -1018,7 +1027,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
             )}
             {isGuaranteed && !isZeroPrice && (
               <div style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a', marginTop: '2px' }}>
-                + 11% tax ({formatMoney(Math.round(unitPrice * 0.11 * 100) / 100)})
+                + {taxRatePercent}% tax ({formatMoney(Math.round(unitPrice * taxRateMultiplier * 100) / 100)})
               </div>
             )}
           </div>
@@ -1470,7 +1479,7 @@ export default function AddonsOptions({ onBack, onContinue }) {
                   marginTop: '1px',
                 }}
               >
-                ({isEs ? 'Incluye' : 'Includes'} {formatMoney(stepTotal.guaranteedTaxSum)} {isEs ? 'impuesto garantizado' : '11% tax'})
+                ({isEs ? 'Incluye' : 'Includes'} {formatMoney(stepTotal.guaranteedTaxSum)} {isEs ? 'impuesto garantizado' : `${taxRatePercent}% tax`})
               </div>
             )}
           </div>

@@ -49,10 +49,18 @@ export function generateFSAPdf({ quote, calculation, db, lang = 'en' }) {
   );
   const dynamicItemizedServices = itemizedBreakdown.rows;
   const effectiveServicesTotal = itemizedBreakdown.totalServices;
-  const STATIC_SALES_TAX_RATE = 0.11;
 
   // ================= 2. DYNAMIC (CONTEXT-BASED) ELEMENTS =================
   const homeObj = calculation?.homeObj || quote?.selectedHomeObj || {};
+  const taxRatePercent = calculation?.taxRate !== undefined && calculation?.taxRate !== null && !isNaN(Number(calculation.taxRate))
+    ? Number(calculation.taxRate)
+    : (homeObj?.taxRate !== undefined && homeObj?.taxRate !== null && !isNaN(Number(homeObj.taxRate))
+        ? Number(homeObj.taxRate)
+        : (quote?.taxRate !== undefined && quote?.taxRate !== null && !isNaN(Number(quote.taxRate))
+            ? Number(quote.taxRate)
+            : 11));
+  const dynamicTaxRateMultiplier = taxRatePercent / 100;
+  const STATIC_SALES_TAX_RATE = dynamicTaxRateMultiplier;
   const serviceKey = quote?.service || 'one_day';
   const serviceObj = quote?.selectedServiceObject || calculation?.serviceObj || {};
   const rawServiceTitle = (getLocalizedText(serviceObj, 'packageName', isEs ? 'es' : 'en') || quote?.serviceName || calculation?.serviceTitle || 'ONE-DAY FUNERAL').toUpperCase();
@@ -145,16 +153,16 @@ export function generateFSAPdf({ quote, calculation, db, lang = 'en' }) {
     0
   );
 
-  // 11% tax on guaranteed merchandise
-  const guaranteedAddonsTax = Number(calculation?.guaranteedAddonsTax) || Math.round(guaranteedAddonsTotal * 0.11 * 100) / 100;
+  // Sales tax on guaranteed merchandise
+  const guaranteedAddonsTax = Number(calculation?.guaranteedAddonsTax) || Math.round(guaranteedAddonsTotal * dynamicTaxRateMultiplier * 100) / 100;
 
   // Add base price of selected guaranteedAddons to Section 2 TOTAL MERCHANDISE and TOTAL GUARANTEED FUNERAL PRICE
   const dynamicTotalMerchandise = dynamicCasketPrice + guaranteedAddonsTotal;
   const dynamicTotalGuaranteed = effectiveServicesTotal + dynamicTotalMerchandise;
 
-  // Flat 11% sales tax across all Section II (Merchandise) items: Caskets and Guaranteed Merchandise
-  const casketSalesTax = Math.round(dynamicCasketPrice * STATIC_SALES_TAX_RATE * 100) / 100;
-  const dynamicSalesTax = Math.round((dynamicCasketPrice + guaranteedAddonsTotal) * STATIC_SALES_TAX_RATE * 100) / 100;
+  // Sales tax across all Section II (Merchandise) items: Caskets and Guaranteed Merchandise
+  const casketSalesTax = Math.round(dynamicCasketPrice * dynamicTaxRateMultiplier * 100) / 100;
+  const dynamicSalesTax = Math.round((dynamicCasketPrice + guaranteedAddonsTotal) * dynamicTaxRateMultiplier * 100) / 100;
 
   // Dynamic Selected Non-Guaranteed Add-ons (Flowers, etc. - excluding guaranteed items)
   const dynamicSelectedAddons = (Array.isArray(calculation?.addedAddons) ? calculation.addedAddons : (quote?.nonGuaranteedAddons || quote?.selectedAddonObjects || []))
@@ -572,7 +580,7 @@ export function generateFSAPdf({ quote, calculation, db, lang = 'en' }) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.text(
-    isEs ? 'Impuesto sobre Ventas (11%)' : 'Sales Tax (11%)',
+    isEs ? `Impuesto sobre Ventas (${taxRatePercent}%)` : `Sales Tax (${taxRatePercent}%)`,
     rightNonGX + 4,
     nonGInnerY + (guaranteedAddonsTax > 0 ? 8.5 : 11)
   );
@@ -585,8 +593,8 @@ export function generateFSAPdf({ quote, calculation, db, lang = 'en' }) {
     doc.setTextColor(...mutedGray);
     doc.text(
       isEs
-        ? `(incluye 11% sobre mercancía garantizada: ${formatMoney(guaranteedAddonsTax)})`
-        : `(includes 11% tax on guaranteed items: ${formatMoney(guaranteedAddonsTax)})`,
+        ? `(incluye ${taxRatePercent}% sobre mercancía garantizada: ${formatMoney(guaranteedAddonsTax)})`
+        : `(includes ${taxRatePercent}% tax on guaranteed items: ${formatMoney(guaranteedAddonsTax)})`,
       rightNonGX + 4,
       nonGInnerY + 15
     );
